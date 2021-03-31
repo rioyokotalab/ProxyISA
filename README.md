@@ -173,7 +173,7 @@ python evaluate.py --gpu-id 0 \
 
 Use preprocessed CUB-200-2011 dataset to show effect of balanced sampling.
 
-<p align="left"><img src="images/Preprocessed_CUB.jpg" alt="graph" width="50%"></p>
+<p align="left"><img src="images/Preprocessed_CUB.png" alt="graph" width="50%"></p>
 
 ```bash
 python train.py --gpu-id 0 \
