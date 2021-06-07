@@ -7,6 +7,7 @@ from net.resnet import *
 from net.googlenet import *
 from net.bn_inception import *
 from dataset import sampler
+from xbm import XBM
 from torch.utils.data.sampler import BatchSampler
 from torch.utils.data.dataloader import default_collate
 
@@ -44,7 +45,7 @@ parser.add_argument('--epochs', default = 60, type = int,
     dest = 'nb_epochs',
     help = 'Number of training epochs.'
 )
-parser.add_argument('--gpu-id', default = 0, type = int,
+parser.add_argument('--gpu_id', default = 0, type = int,
     help = 'ID of GPU that is used for training.'
 )
 parser.add_argument('--workers', default = 4, type = int,
@@ -63,35 +64,71 @@ parser.add_argument('--optimizer', default = 'adamw',
 parser.add_argument('--lr', default = 1e-4, type =float,
     help = 'Learning rate setting'
 )
-parser.add_argument('--weight-decay', default = 1e-4, type =float,
+parser.add_argument('--weight_decay', default = 1e-4, type =float,
     help = 'Weight decay setting'
 )
-parser.add_argument('--lr-decay-step', default = 10, type =int,
+parser.add_argument('--lr_decay_step', default = 10, type =int,
     help = 'Learning decay step setting'
 )
-parser.add_argument('--lr-decay-gamma', default = 0.5, type =float,
+parser.add_argument('--lr_decay_gamma', default = 0.5, type =float,
     help = 'Learning decay gamma setting'
 )
+parser.add_argument('--warm', default = 1, type = int,
+    help = 'Warmup training epochs'
+)
+parser.add_argument('--bn_freeze', default = 1, type = int,
+    help = 'Batch normalization parameter freeze'
+)
+parser.add_argument('--l2_norm', default = 1, type = int,
+    help = 'L2 normlization'
+)
+
+# XBM settings
+parser.add_argument('--enableXBM', default = False, type = bool,
+    help = 'Use Cross Batch Memory'
+)
+parser.add_argument('--k', default = 55000, type = int,
+    help = 'XBM size'
+)
+parser.add_argument('--eta', default = 1.0, type = float,
+    help = 'XBM weight'
+)
+parser.add_argument('--start_epoch', default = 2, type = int,
+    help = 'Num. of epoch to introduce XBM loss'
+)
+
+# Proxy-Anchor settings
 parser.add_argument('--alpha', default = 32, type = float,
     help = 'Scaling Parameter setting'
 )
 parser.add_argument('--mrg', default = 0.1, type = float,
     help = 'Margin parameter setting'
 )
-parser.add_argument('--IPC', type = int,
+
+# Distance Weighted Sampling settings
+parser.add_argument('--resample', default = False, type = bool,
+    help = 'Distance weighted sampling'
+)
+parser.add_argument('--cutoff', default = 0.5, type = float,
+    help = 'Cut off to avoid high variance'
+)
+parser.add_argument('--nonzero_loss_cutoff', default = 1.4, type = float,
+    help = 'Cut off to avoid easy negatives'
+)
+parser.add_argument('--NPR', default = 0.5, type = float,
+    help = 'Negative Proxies Rate for Distance weighted sampling'
+)
+
+# Balanced Sampling settings
+parser.add_argument('--IPC', default = None, type = int,
     help = 'Balanced sampling, images per class'
 )
-parser.add_argument('--warm', default = 1, type = int,
-    help = 'Warmup training epochs'
-)
-parser.add_argument('--bn-freeze', default = 1, type = int,
-    help = 'Batch normalization parameter freeze'
-)
-parser.add_argument('--l2-norm', default = 1, type = int,
-    help = 'L2 normlization'
-)
-parser.add_argument('--scale', default = 0.8, type = float,
+parser.add_argument('--scale', default = 1.0, type = float,
     help = 'Preprocess dataset to unbalance'
+)
+
+parser.add_argument('--eval_metric', default = 'Recall',
+    help = 'Evaluation method'
 )
 parser.add_argument('--remark', default = '',
     help = 'Any reamrk'
@@ -106,8 +143,12 @@ if args.gpu_id != -1:
 LOG_DIR = args.LOG_DIR + '/logs_{}/{}_{}_embedding{}_alpha{}_mrg{}_{}_lr{}_batch{}{}'.format(args.dataset, args.model, args.loss, args.sz_embedding, args.alpha, 
                                                                                             args.mrg, args.optimizer, args.lr, args.sz_batch, args.remark)
 # Wandb Initialization
-wandb.init(project=args.dataset + '_ProxyAnchor', notes=LOG_DIR)
+wandb.init(project=args.dataset + '_Experiment', notes=LOG_DIR)
 wandb.config.update(args)
+
+if args.enableXBM:
+    print('Use XBM')
+    xbm = XBM(args.k, args.sz_embedding)
 
 os.chdir('../data/')
 data_root = os.getcwd()
@@ -233,7 +274,8 @@ if args.gpu_id == -1:
 
 # DML Losses
 if args.loss == 'Proxy_Anchor':
-    criterion = losses.Proxy_Anchor(nb_classes = nb_classes, sz_embed = args.sz_embedding, mrg = args.mrg, alpha = args.alpha).cuda()
+    criterion = losses.Proxy_Anchor(nb_classes = nb_classes, sz_embed = args.sz_embedding, mrg = args.mrg, alpha = args.alpha, resample = args.resample,
+                                    cutoff = args.cutoff, nonzero_loss_cutoff = args.nonzero_loss_cutoff, NPR = args.NPR).cuda()
 elif args.loss == 'Proxy_NCA':
     criterion = losses.Proxy_NCA(nb_classes = nb_classes, sz_embed = args.sz_embedding).cuda()
 elif args.loss == 'MS':
@@ -299,9 +341,18 @@ for epoch in range(0, args.nb_epochs):
 
     pbar = tqdm(enumerate(dl_tr))
 
-    for batch_idx, (x, y) in pbar:                         
-        m = model(x.squeeze().cuda())
-        loss = criterion(m, y.squeeze().cuda())
+    for batch_idx, (imgs, targets) in pbar:                         
+        feats = model(imgs.squeeze().cuda())
+
+        if args.enableXBM and epoch >= args.start_epoch:
+            xbm.enqueue_dequeue(feats.detach(), targets.squeeze().detach().cuda())
+            xbm_feats, xbm_targets = xbm.get()
+            xbm_loss = criterion(feats, targets.squeeze().cuda(), xbm_feats, xbm_targets)
+            loss = args.eta * xbm_loss
+        elif args.loss == 'Contrastive' or args.loss == 'MS':
+            loss = criterion(feats, targets.squeeze().cuda(), feats, targets.squeeze().cuda())
+        else:
+            loss = criterion(feats, targets.squeeze().cuda())
         
         opt.zero_grad()
         loss.backward()

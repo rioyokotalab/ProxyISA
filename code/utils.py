@@ -70,7 +70,7 @@ def evaluate_cos(model, dataloader):
     X, T = predict_batchwise(model, dataloader)
     X = l2_norm(X)
 
-    # get predictions by assigning nearest 8 neighbors with cosine
+    # get predictions by assigning nearest K neighbors with cosine
     K = 32
     Y = []
     xs = []
@@ -80,14 +80,54 @@ def evaluate_cos(model, dataloader):
     Y = Y.float().cpu()
     
     recall = []
-    for k in [1, 2, 4, 8, 16, 32]:
+    for k in [2**x for x in range(6)]:
         r_at_k = calc_recall_at_k(T, Y, k)
         recall.append(r_at_k)
         print("R@{} : {:.3f}".format(k, 100 * r_at_k))
 
     return recall
 
-def evaluate_cos_Inshop(model, query_dataloader, gallery_dataloader):
+def calc_map_at_r(T, Y, r):
+    """
+    T : [nb_samples] (target labels)
+    Y : [nb_samples x k] (k predicted labels/neighbours)
+    """
+
+    n_samples = len(T)
+    total = [0] * n_samples
+    count = [0] * n_samples
+    for i in range(r):
+        for j in range(n_samples):
+            if T[j] == torch.Tensor(Y[j]).long()[i]:
+                count[j] += 1
+                total[j] += count[j] / (i + 1)
+    return sum(total) / (r * n_samples)
+
+def evaluate_cos_map(model, dataloader):
+    nb_classes = dataloader.dataset.nb_classes()
+
+    # calculate embeddings with model and get targets
+    X, T = predict_batchwise(model, dataloader)
+    X = l2_norm(X)
+
+    # get predictions by assigning nearest K neighbors with cosine
+    K = 32
+    Y = []
+    xs = []
+    
+    cos_sim = F.linear(X, X)
+    Y = T[cos_sim.topk(1 + K)[1][:,1:]]
+    Y = Y.float().cpu()
+    
+    map_list = []
+    for r in [2**x for x in range(6)]:
+        map_at_r = calc_map_at_r(T, Y, r)
+        map_list.append(map_at_r)
+        print("MAP@{} : {:.3f}".format(r, 100 * map_at_r))
+
+    return map_list
+
+def evaluate_cos_Inshop(model, query_dataloader, gallery_dataloader, isMap=False):
     nb_classes = query_dataloader.dataset.nb_classes()
     
     # calculate embeddings with model and get targets
@@ -119,16 +159,37 @@ def evaluate_cos_Inshop(model, query_dataloader, gallery_dataloader):
             
         return match_counter / m
     
-    # calculate recall @ 1, 2, 4, 8
-    recall = []
-    for k in [1, 10, 20, 30, 40, 50]:
-        r_at_k = recall_k(cos_sim, query_T, gallery_T, k)
-        recall.append(r_at_k)
-        print("R@{} : {:.3f}".format(k, 100 * r_at_k))
-                
-    return recall
+    def map_r(cos_sim, query_T, gallery_T, r):
+        m = len(cos_sim)
+        total = [0] * m
+        count = [0] * m
 
-def evaluate_cos_SOP(model, dataloader):
+        for i in range(r):
+            for j in range(m):
+                _, index = torch.sort(cos_sim[j], descending=True)
+
+                if gallery_T[index[i]] == query_T[j]:
+                    count[j] += 1
+                    total[j] += count[j] / (i + 1)
+            
+        return sum(total) / (r * m)
+
+    # calculate recall@k / map@r
+    result = []
+    if isMap:
+        for r in [1, 10, 20, 30, 40, 50]:
+            m_at_r = map_r(cos_sim, query_T, gallery_T, r)
+            result.append(m_at_r)
+            print("MAP@{} : {:.3f}".format(r, 100 * m_at_r))
+    else:
+        for k in [1, 10, 20, 30, 40, 50]:
+            r_at_k = recall_k(cos_sim, query_T, gallery_T, k)
+            result.append(r_at_k)
+            print("R@{} : {:.3f}".format(k, 100 * r_at_k))
+                
+    return result
+
+def evaluate_cos_SOP(model, dataloader, isMap=False):
     nb_classes = dataloader.dataset.nb_classes()
     
     # calculate embeddings with model and get targets
@@ -157,10 +218,21 @@ def evaluate_cos_SOP(model, dataloader):
     Y.append(y.float().cpu())
     Y = torch.cat(Y, dim=0)
 
-    # calculate recall @ 1, 2, 4, 8
-    recall = []
-    for k in [1, 10, 100, 1000]:
-        r_at_k = calc_recall_at_k(T, Y, k)
-        recall.append(r_at_k)
-        print("R@{} : {:.3f}".format(k, 100 * r_at_k))
-    return recall
+    # calculate recall@k / map@r
+    result = []
+    if isMap:
+        for r in [10**x for x in range(4)]:
+            map_at_r = calc_map_at_r(T, Y, r)
+            result.append(map_at_r)
+            print("MAP@{} : {:.3f}".format(r, 100 * map_at_r))
+    else:
+        for k in [10**x for x in range(4)]:
+            r_at_k = calc_recall_at_k(T, Y, k)
+            result.append(r_at_k)
+            print("R@{} : {:.3f}".format(k, 100 * r_at_k))
+
+    return result
+
+def calcSVD(X_grad):
+    u, s, vh = torch.linalg.svd(X_grad, full_matrices=False)
+    return s
