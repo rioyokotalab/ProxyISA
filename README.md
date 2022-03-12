@@ -195,7 +195,7 @@ t-SNE visualization of 512-dimensional embedding space for the Cars-196 dataset 
 Left: Proxy-Anchor loss (Kim et al. CVPR 2022);
 Right: Proxy-ISA (Ours)
 
-<p align="left"><img src="images/tSNE_ProxyAnchor.png" alt="graph" width="47%">&nbsp<img src="images/tSNE_ProxyISA.png" alt="graph" width="49%"></p>
+<p align="left"><img src="images/tSNE_ProxyAnchor.png" alt="graph" width="47%">&nbsp<img src="images/tSNE_ProxyISA.png" alt="graph" width="48%"></p>
 
 <!-- ## Citation
     
