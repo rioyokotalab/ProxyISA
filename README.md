@@ -144,7 +144,7 @@ python train.py --gpu_id 0 \
                 --lr_decay_step 20 \
                 --lr_decay_gamma 0.25 \
                 --enableMemory True \
-		            --k 0.1
+                --k 0.1
 ```
 
 <!-- | Method | Backbone | R@1 | R@10 | R@20 | R@30 | R@40 |
@@ -155,7 +155,7 @@ python train.py --gpu_id 0 \
 
 Follow the below steps to evaluate the trained model. 
 
-Trained best model will be saved in the `./logs/folder_name`.
+Trained best model will be saved in `./logs/folder_name`.
 
 ```bash
 # The parameters should be changed according to the model to be evaluated.
@@ -192,10 +192,10 @@ python train.py --gpu-id 0 \
 
 t-SNE visualization of 512-dimensional embedding space for the Cars-196 dataset (during training).
 
-Left: Proxy-Anchor loss (Kim et al. CVPR 2022)
+Left: Proxy-Anchor loss (Kim et al. CVPR 2022);
 Right: Proxy-ISA (Ours)
 
-<p align="left"><img src="images/tSNE_ProxyAnchor.png" alt="graph" width="47%">&nbsp<img src="images/tSNE_ProxyISA.png" alt="graph" width="47%"></p>
+<p align="left"><img src="images/tSNE_ProxyAnchor.png" alt="graph" width="46%">&nbsp<img src="images/tSNE_ProxyISA.png" alt="graph" width="49%"></p>
 
 <!-- ## Citation
     

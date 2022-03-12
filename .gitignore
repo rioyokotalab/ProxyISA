@@ -1,0 +1,32 @@
+# Shell Scripts
+*.sh
+*.out
+
+# Cache Files
+**/.swp
+**/__pycache__/
+**/*.pyc
+
+# Image Files
+**/*.jpg
+**/*.JPG
+**/*.png
+**/*.PNG
+**/*.zip
+
+# Checkpoint Files
+**/*.pth
+
+# Ignore Folders
+**/out_put/
+logs/*
+data/*
+**/wandb/
+
+# Exception
+!.gitignore
+!README.md
+!misc/*
+!logs/.gitkeep
+!data/.gitkeep
+!pretrained_source/.gitkeep
