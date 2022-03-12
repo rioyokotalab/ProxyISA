@@ -11,8 +11,5 @@ _type = {
     'SOP': SOP
 }
 
-def load(name, root, mode, scale = 0.8, transform = None):
-    if name == 'cub':
-        return _type[name](root = root, mode = mode, scale = scale, transform = transform)
-    else:
-        return _type[name](root = root, mode = mode, transform = transform)
+def load(name, root, mode, transform = None):
+    return _type[name](root = root, mode = mode, transform = transform)

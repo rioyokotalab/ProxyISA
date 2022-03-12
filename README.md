@@ -1,22 +1,18 @@
+# Informative Sample-Aware Proxy for Deep Metric Learning
 
-# Proxy Anchor Loss for Deep Metric Learning
-
-Unofficial PyTorch implementation of CVPR 2020 paper [**Proxy Anchor Loss for Deep Metric Learning**](https://arxiv.org/abs/2003.13911). 
+<!-- Official PyTorch implementation of ECCV 2022 paper [**Informative Sample-Aware Proxy for Deep Metric Learning**].  -->
 
 This repository provides source code of experiments on four datasets (CUB-200-2011, Cars-196, Stanford Online Products and In-shop) and pretrained models.
-
-
 
 ## Requirements
 
 - Python3
-- PyTorch (> 1.0)
+- PyTorch (> 1.6)
 - NumPy
 - tqdm
-- wandb
+- [wandb](https://wandb.ai/quickstart/pytorch)
+- [plotly](https://plotly.com/python/getting-started/) (needed if you want to visualize with t-SNE)
 - [Pytorch-Metric-Learning](https://github.com/KevinMusgrave/pytorch-metric-learning)
-
-
 
 ## Datasets
 
@@ -28,130 +24,132 @@ This repository provides source code of experiments on four datasets (CUB-200-20
 
 2. Extract the tgz or zip file into `./data/` (Exceptionally, for Cars-196, put the files in a `./data/cars196`)
 
-
 ## Training Embedding Network
 
-Note that a sufficiently large batch size and good parameters resulted in better overall performance than that described in the paper. You can download the trained model through the hyperlink in the table.
+<!-- You can download the trained model through the hyperlink in the table. -->
 
 ### CUB-200-2011
 
-- Train a embedding network of Inception-BN (d=512) using **Proxy-Anchor loss**
+- Train a embedding network of Inception-BN using **Proxy-ISA**
 
 ```bash
-python train.py --gpu-id 0 \
-                --loss Proxy_Anchor \
+python train.py --gpu_id 0 \
+                --loss ProxyISA \
                 --model bn_inception \
-                --embedding-size 512 \
-                --batch-size 180 \
+                --embedding_size 512 \
+                --batch_size 128 \
                 --lr 1e-4 \
                 --dataset cub \
-                --warm 1 \
-                --bn-freeze 1 \
-                --lr-decay-step 10
+                --lr_decay_step 10 \
+                --enableMemory True
 ```
 
-- Train a embedding network of ResNet-50 (d=512) using **Proxy-Anchor loss**
+- Train a embedding network of ResNet-50 using **Proxy-ISA**
 
 ```bash
-python train.py --gpu-id 0 \
-                --loss Proxy_Anchor \
+python train.py --gpu_id 0 \
+                --loss ProxyISA \
                 --model resnet50 \
-                --embedding-size 512 \
-                --batch-size 120 \
+                --embedding_size 512 \
+                --batch_size 128 \
                 --lr 1e-4 \
                 --dataset cub \
-                --warm 5 \
-                --bn-freeze 1 \
-                --lr-decay-step 5
+                --warm 0 \
+                --lr_decay_step 5 \
+                --enableMemory True
 ```
 
-| Method | Backbone | R@1 | R@2 | R@4 | R@8 |
+<!-- | Method | Backbone | Recall@1 | MAP@R |
 |:-:|:-:|:-:|:-:|:-:|:-:|
-| [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1twaY6S2QIR8eanjDB6PoVPlCTsn-6ZJW/view?usp=sharing) | Inception-BN | 69.1 | 78.9 | 86.1 | 91.2 |
-| [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1s-cRSEL2PhPFL9S7bavkrD_c59bJXL_u/view?usp=sharing) | ResNet-50 | 69.9 | 79.6 | 86.6 | 91.4 |
+| Proxy-ISA | Inception-BN | 68.1 | 26.97 | -->
+<!-- | [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1s-cRSEL2PhPFL9S7bavkrD_c59bJXL_u/view?usp=sharing) | ResNet-50 | 69.9 | 79.6 | 86.6 | 91.4 | -->
 
 ### Cars-196
 
-- Train a embedding network of Inception-BN (d=512) using **Proxy-Anchor loss**
+- Train a embedding network of Inception-BN using **Proxy-ISA**
 
 ```bash
-python train.py --gpu-id 0 \
-                --loss Proxy_Anchor \
+python train.py --gpu_id 0 \
+                --loss ProxyISA \
                 --model bn_inception \
-                --embedding-size 512 \
-                --batch-size 180 \
+                --embedding_size 512 \
+                --batch_size 128 \
                 --lr 1e-4 \
                 --dataset cars \
-                --warm 1 \
-                --bn-freeze 1 \
-                --lr-decay-step 20
+                --lr_decay_step 20 \
+                --enableMemory True \
+                --k 0.4
 ```
 
-- Train a embedding network of ResNet-50 (d=512) using **Proxy-Anchor loss**
+- Train a embedding network of ResNet-50 using **Proxy-ISA**
 
 ```bash
-python train.py --gpu-id 0 \
-                --loss Proxy_Anchor \
+python train.py --gpu_id 0 \
+                --loss ProxyISA \
                 --model resnet50 \
-                --embedding-size 512 \
-                --batch-size 120 \
+                --embedding_size 512 \
+                --batch_size 128 \
                 --lr 1e-4 \
                 --dataset cars \
-                --warm 5 \
-                --bn-freeze 1 \
-                --lr-decay-step 10 
+                --warm 0 \
+                --lr_decay_step 10 \
+                --enableMemory True \
+                --k 0.4
 ```
 
-| Method | Backbone | R@1 | R@2 | R@4 | R@8 |
+<!-- | Method | Backbone | R@1 | R@2 | R@4 | R@8 |
 |:-:|:-:|:-:|:-:|:-:|:-:|
 | [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1wwN4ojmOCEAOaSYQHArzJbNdJQNvo4E1/view?usp=sharing) | Inception-BN | 86.4 | 91.9 | 95.0 | 97.0 |
-| [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1_4P90jZcDr0xolRduNpgJ9tX9HZ1Ih7n/view?usp=sharing) | ResNet-50 | 87.7 | 92.7 | 95.5 | 97.3 |
+| [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1_4P90jZcDr0xolRduNpgJ9tX9HZ1Ih7n/view?usp=sharing) | ResNet-50 | 87.7 | 92.7 | 95.5 | 97.3 | -->
 
 ### Stanford Online Products
 
-- Train a embedding network of Inception-BN (d=512) using **Proxy-Anchor loss**
+- Train a embedding network of Inception-BN using **Proxy-ISA**
 
 ```bash
-python train.py --gpu-id 0 \
-                --loss Proxy_Anchor \
+python train.py --gpu_id 0 \
+                --loss ProxyISA \
                 --model bn_inception \
-                --embedding-size 512 \
-                --batch-size 180 \
+                --optimizer adamw \
+                --embedding_size 512 \
+                --batch_size 128 \
                 --lr 6e-4 \
                 --dataset SOP \
                 --warm 1 \
-                --bn-freeze 0 \
-                --lr-decay-step 20 \
-                --lr-decay-gamma 0.25
+                --bn_freeze False \
+                --lr_decay_step 20 \
+                --lr_decay_gamma 0.25 \
+                --enableMemory True
 ```
 
-| Method | Backbone | R@1 | R@10 | R@100 | R@1000 |
+<!-- | Method | Backbone | R@1 | R@10 | R@100 | R@1000 |
 |:-:|:-:|:-:|:-:|:-:|:-:|
-| [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1hBdWhLP2J83JlOMRgZ4LLZY45L-9Gj2X/view?usp=sharing) | Inception-BN | 79.2 | 90.7 | 96.2 | 98.6 |
+| [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1hBdWhLP2J83JlOMRgZ4LLZY45L-9Gj2X/view?usp=sharing) | Inception-BN | 79.2 | 90.7 | 96.2 | 98.6 | -->
 
 ### In-Shop Clothes Retrieval
 
-- Train a embedding network of Inception-BN (d=512) using **Proxy-Anchor loss**
+- Train a embedding network of Inception-BN using **Proxy-ISA**
 
 ```bash
-python train.py --gpu-id 0 \
-                --loss Proxy_Anchor \
+python train.py --gpu_id 0 \
+                --loss ProxyISA \
                 --model bn_inception \
-                --embedding-size 512 \
-                --batch-size 180 \
+                --optimizer adamw \
+                --embedding_size 512 \
+                --batch_size 128 \
                 --lr 6e-4 \
                 --dataset Inshop \
                 --warm 1 \
-                --bn-freeze 0 \
-                --lr-decay-step 20 \
-                --lr-decay-gamma 0.25
+                --bn_freeze False \
+                --lr_decay_step 20 \
+                --lr_decay_gamma 0.25 \
+                --enableMemory True \
+		            --k 0.1
 ```
 
-| Method | Backbone | R@1 | R@10 | R@20 | R@30 | R@40 |
+<!-- | Method | Backbone | R@1 | R@10 | R@20 | R@30 | R@40 |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1VE7psay7dblDyod8di72Sv7Z2xGtUGra/view?usp=sharing) | Inception-BN | 91.9 | 98.1 | 98.7 | 99.0 | 99.1 |
-
-
+| [Proxy-Anchor<sup>512</sup>](https://drive.google.com/file/d/1VE7psay7dblDyod8di72Sv7Z2xGtUGra/view?usp=sharing) | Inception-BN | 91.9 | 98.1 | 98.7 | 99.0 | 99.1 | -->
 
 ## Evaluating Image Retrieval
 
@@ -161,15 +159,15 @@ Trained best model will be saved in the `./logs/folder_name`.
 
 ```bash
 # The parameters should be changed according to the model to be evaluated.
-python evaluate.py --gpu-id 0 \
-                   --batch-size 120 \
+python evaluate.py --gpu_id 0 \
+                   --batch_size 128 \
                    --model bn_inception \
-                   --embedding-size 512 \
+                   --embedding_size 512 \
                    --dataset cub \
-                   --resume /set/your/model/path/best_model.pth
+                   --resume /your/model/path/best_model.pth
 ```
 
-## Class Imalance problem study
+<!-- ## Class Imalance problem study
 
 Use preprocessed CUB-200-2011 dataset to show effect of balanced sampling.
 
@@ -186,18 +184,25 @@ python train.py --gpu-id 0 \
                 --warm 5 \
                 --bn-freeze 1 \
                 --lr-decay-step 5 \
-		--scale 0.8 \
+		            --scale 0.8 \
                 --IPC 3
-```
-  
+``` -->
 
-## Citation
+## Embedding Space Visualization
+
+t-SNE visualization of 512-dimensional embedding space for the Cars-196 dataset (during training).
+
+Left: Proxy-Anchor loss (Kim et al. CVPR 2022)
+Right: Proxy-ISA (Ours)
+
+<p align="left"><img src="images/tSNE_ProxyAnchor.png" alt="graph" width="47%">&nbsp<img src="images/tSNE_ProxyISA.png" alt="graph" width="47%"></p>
+
+<!-- ## Citation
     
-    @InProceedings{Kim_2020_CVPR,
-      author = {Kim, Sungyeon and Kim, Dongwon and Cho, Minsu and Kwak, Suha},
-      title = {Proxy Anchor Loss for Deep Metric Learning},
+    @InProceedings{Li_2022_ECCV,
+      author = {},
+      title = {Informative Sample-Aware Proxy for Deep Metric Learning},
       booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
       month = {June},
-      year = {2020}
-    }
-
+      year = {2022}
+    } -->

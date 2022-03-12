@@ -11,47 +11,45 @@ from torch.utils.data.sampler import BatchSampler
 from torch.utils.data.dataloader import default_collate
 
 from tqdm import *
-import wandb
 
-seed = 1
+seed = 67
 random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed) # set random seed for all gpus
 
 parser = argparse.ArgumentParser(description=
-    'Unofficial implementation of `Proxy Anchor Loss for Deep Metric Learning`'  
-    + 'Code is modified from `https://github.com/tjddus9597/Proxy-Anchor-CVPR2020`'
+    'Official implementation of `Informative Sample-Aware for Deep Metric Learning`'
 )
 parser.add_argument('--dataset', 
     default='cub',
     help = 'Training dataset, e.g. cub, cars, SOP, Inshop'
 )
-parser.add_argument('--embedding-size', default = 512, type = int,
+parser.add_argument('--embedding_size', default = 512, type = int,
     dest = 'sz_embedding',
-    help = 'Size of embedding that is appended to backbone model.'
+    help = 'Size of embedding that is appended to backbone model'
 )
-parser.add_argument('--batch-size', default = 150, type = int,
+parser.add_argument('--batch_size', default = 128, type = int,
     dest = 'sz_batch',
-    help = 'Number of samples per batch.'
+    help = 'Size of mini-batch'
 )
-parser.add_argument('--gpu-id', default = 0, type = int,
-    help = 'ID of GPU that is used for training.'
+parser.add_argument('--gpu_id', default = 0, type = int,
+    help = 'ID of GPU that is used for training'
 )
 parser.add_argument('--workers', default = 4, type = int,
-    dest = 'nb_workers',
-    help = 'Number of workers for dataloader.'
+    dest = 'num_workers',
+    help = 'Number of workers for dataloader'
 )
 parser.add_argument('--model', default = 'bn_inception',
     help = 'Model for training'
 )
-parser.add_argument('--l2-norm', default = 1, type = int,
-    help = 'L2 normlization'
+parser.add_argument('--l2_norm', default = 1, type = int,
+    help = 'L2 normlization for model outputs'
 )
 parser.add_argument('--resume', default = '',
     help = 'Path of resuming model'
 )
-parser.add_argument('--remark', default = '',
+parser.add_argument('--remark', default = 'eval',
     help = 'Any reamrk'
 )
 
@@ -79,7 +77,7 @@ if args.dataset != 'Inshop':
         ev_dataset,
         batch_size = args.sz_batch,
         shuffle = False,
-        num_workers = args.nb_workers,
+        num_workers = args.num_workers,
         pin_memory = True
     )
     
@@ -96,7 +94,7 @@ else:
         query_dataset,
         batch_size = args.sz_batch,
         shuffle = False,
-        num_workers = args.nb_workers,
+        num_workers = args.num_workers,
         pin_memory = True
     )
 
@@ -112,7 +110,7 @@ else:
         gallery_dataset,
         batch_size = args.sz_batch,
         shuffle = False,
-        num_workers = args.nb_workers,
+        num_workers = args.num_workers,
         pin_memory = True
     )
 
@@ -151,4 +149,5 @@ with torch.no_grad():
     else:
         Recalls = utils.evaluate_cos_SOP(model, dl_ev)
 
-    
+    fig = utils.tSNEPlot(model, dl_ev)
+    # fig.write_image('Your/Figure/Path/FigureName.png')

@@ -1,7 +1,6 @@
 import torch
 
-
-class XBM:
+class CrossBatchMemory:
     def __init__(self, k, sizeEmbedding):
         self.K = k
         self.sizeEmb = sizeEmbedding

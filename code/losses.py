@@ -46,66 +46,31 @@ def get_distance(x, p):
 
     return torch.sqrt(distance_square)
 
-class Proxy_Anchor(torch.nn.Module):
-    def __init__(self, nb_classes, sz_embed, mrg = 0.1, alpha = 32, resample = False, cutoff = 0.5, nonzero_loss_cutoff = 1.4, NPR = 0.5):
+class ProxyAnchor(torch.nn.Module):
+    def __init__(self, nb_classes, sz_embed, mrg = 0.1, alpha = 32):
         torch.nn.Module.__init__(self)
-        # Proxy Anchor Initialization
-        self.proxies = torch.nn.Parameter(torch.randn(nb_classes, sz_embed).cuda())
+        # Proxy Initialization
+        self.proxies = torch.nn.Parameter(torch.Tensor(nb_classes, sz_embed).cuda())
         nn.init.kaiming_normal_(self.proxies, mode='fan_out')
 
         self.nb_classes = nb_classes
         self.sz_embed = sz_embed
         self.mrg = mrg
         self.alpha = alpha
-        self.resample = resample
-        self.cutoff = cutoff
-
-        # We sample only from negatives that induce a non-zero loss
-        # These are negative proxies with a distance < nonzero_loss_cutoff
-        self.nonzero_loss_cutoff = nonzero_loss_cutoff
-        self.nb_n_proxies = int(NPR * nb_classes)
         
     def forward(self, X, T):
-        P = self.proxies
+        proxy_l2 = l2_norm(self.proxies)
 
         n, d = X.shape
 
-        distance = get_distance(l2_norm(X), l2_norm(P))
-        P_one_hot = binarize(T = T, nb_classes = self.nb_classes)
+        P_one_hot = binarize(T=T, nb_classes=self.nb_classes)
+        N_one_hot = 1 - P_one_hot
 
-        if self.resample: # Distance weighted sampling
-            # Cut off to avoid high variance
-            distance_clip = torch.maximum(distance, distance.new_full(distance.shape, self.cutoff))
-            # Subtract max(log(distance)) for stability
-            log_weights = ((2.0 - float(d)) * torch.log(distance_clip)
-                          - (float(d - 3) / 2) * torch.log(1.0 - 0.25 * (distance_clip ** 2.0)))
-            weights = torch.exp(log_weights - torch.max(log_weights))
-            # Sample only negative examples
-            weights = weights * (distance_clip < self.nonzero_loss_cutoff)
-            weights = (weights / torch.sum(weights, dim=0, keepdim=True))
-
-            n_indices = []
-            for i in range(n):
-                n_index = []
-                try:
-                    n_index += np.random.choice(self.nb_classes, self.nb_n_proxies, p=weights[i], replace=False).tolist()
-                except:
-                    n_index += np.random.choice(self.nb_classes, self.nb_n_proxies, replace=False).tolist()
-                n_indices.append(n_index)
-
-            N_one_hot = [[0 for i in range(self.nb_classes)] for j in range(n)]
-            for i in range(len(n_indices)):
-                for j in range(len(n_indices[0])):
-                    N_one_hot[i][int(n_indices[i][j])] = 1
-            N_one_hot = torch.FloatTensor(N_one_hot).cuda()
-        else:
-            N_one_hot = 1 - P_one_hot
-
-        cos = F.linear(l2_norm(X), l2_norm(P))  # Calcluate cosine similarity
+        cos = F.linear(l2_norm(X), proxy_l2)  # Calcluate cosine similarity
         pos_exp = torch.exp(-self.alpha * (cos - self.mrg))
         neg_exp = torch.exp(self.alpha * (cos + self.mrg))
 
-        with_pos_proxies = torch.nonzero(P_one_hot.sum(dim = 0) != 0).squeeze(dim = 1)   # The set of positive proxies of data in the batch
+        with_pos_proxies = torch.nonzero(P_one_hot.sum(dim=0) != 0).squeeze(dim = 1)   # The set of positive proxies of data in the batch
         num_valid_proxies = len(with_pos_proxies)   # The number of positive proxies
         
         P_sim_sum = torch.where(P_one_hot == 1, pos_exp, torch.zeros_like(pos_exp)).sum(dim=0)
@@ -117,22 +82,38 @@ class Proxy_Anchor(torch.nn.Module):
         
         return loss
 
-# We use PyTorch Metric Learning library for the following codes.
-# Please refer to "https://github.com/KevinMusgrave/pytorch-metric-learning" for details.
-class Proxy_NCA(torch.nn.Module):
-    def __init__(self, nb_classes, sz_embed, scale=32):
-        super(Proxy_NCA, self).__init__()
-        self.nb_classes = nb_classes
-        self.sz_embed = sz_embed
+class ProxyNCA(torch.nn.Module):
+    def __init__(self, numClasses, sizeEmbed, scale=12.0, init_type='normal'):
+        super(ProxyNCA, self).__init__()
+        self.proxies = nn.Parameter(torch.Tensor(numClasses, sizeEmbed).cuda())
+        self.n_classes = numClasses
         self.scale = scale
-        self.loss_func = losses.ProxyNCALoss(num_classes = self.nb_classes, embedding_size = self.sz_embed, softmax_scale = self.scale).cuda()
+        if init_type == 'normal':
+            nn.init.kaiming_normal_(self.proxies, mode='fan_out')
+        elif init_type == 'uniform':
+            nn.init.kaiming_uniform_(self.proxies, a=math.sqrt(5))
+        else:
+            raise ValueError('%s not supported' % init_type)
 
-    def forward(self, embeddings, labels):
-        loss = self.loss_func(embeddings, labels)
+    def forward(self, input, target):
+        P = self.proxies
+
+        # input already l2_normalized
+        proxy_l2 = F.normalize(P, p=2, dim=1)
+
+        # N, dim, cls
+        sim_mat = F.linear(input, proxy_l2) * self.scale
+
+        pos_target = F.one_hot(target, self.n_classes).float()
+        neg_target = 1 - pos_target
+
+        loss = torch.mean(-sim_mat[torch.arange(0, input.shape[0]), target] + torch.log(torch.sum(neg_target * torch.exp(sim_mat), -1)))
+
+        # return loss if loss >= 0 else torch.zeros([], requires_grad=True).cuda()
         return loss
     
 class MultiSimilarityLoss(nn.Module):
-    def __init__(self, scale_neg = 50.0, hard_mining = True):
+    def __init__(self, scale_neg=50.0, hard_mining=True):
         super(MultiSimilarityLoss, self).__init__()
         self.thresh = 0.5
         self.margin = 0.1
@@ -163,7 +144,6 @@ class MultiSimilarityLoss(nn.Module):
 
             if len(neg_pair) < 1 or len(pos_pair) < 1:
                 continue
-            # neg_count += len(neg_pair)
 
             # weighting step
             pos_loss = (
@@ -184,7 +164,6 @@ class MultiSimilarityLoss(nn.Module):
 
         if len(loss) == 0:
             return torch.zeros([], requires_grad=True).cuda()
-        # log_info["neg_count"] = neg_count / batch_size
         loss = sum(loss) / batch_size
         return loss
     
@@ -192,7 +171,6 @@ class ContrastiveLoss(nn.Module):
     def __init__(self, margin=0.5, **kwargs):
         super(ContrastiveLoss, self).__init__()
         self.margin = margin
-        # self.loss_func = losses.ContrastiveLoss(neg_margin=self.margin) 
         
     def forward(self, inputs_col, targets_col, inputs_row, target_row):
         n = inputs_col.size(0)
@@ -201,7 +179,6 @@ class ContrastiveLoss(nn.Module):
         epsilon = 1e-5
         loss = list()
 
-        # neg_count = list()
         for i in range(n):
             pos_pair_ = torch.masked_select(sim_mat[i], targets_col[i] == target_row)
             pos_pair_ = torch.masked_select(pos_pair_, pos_pair_ < 1 - epsilon)
@@ -219,33 +196,129 @@ class ContrastiveLoss(nn.Module):
                 neg_loss = 0
 
             loss.append(pos_loss + neg_loss)
-        # if inputs_col.shape[0] == inputs_row.shape[0]:
-        #     prefix = "batch_"
-        # else:
-        #     prefix = "memory_"
-        loss = sum(loss) / n  # / all_targets.shape[1]
+        
+        loss = sum(loss) / n
         return loss
     
 class TripletLoss(nn.Module):
     def __init__(self, margin=0.1, **kwargs):
         super(TripletLoss, self).__init__()
         self.margin = margin
-        self.miner = miners.TripletMarginMiner(margin, type_of_triplets = 'semihard')
-        self.loss_func = losses.TripletMarginLoss(margin = self.margin)
+        self.miner = miners.TripletMarginMiner(margin, type_of_triplets='semihard')
+        self.loss_func = losses.TripletMarginLoss(margin=self.margin)
         
     def forward(self, embeddings, labels):
         hard_pairs = self.miner(embeddings, labels)
         loss = self.loss_func(embeddings, labels, hard_pairs)
         return loss
     
-class NPairLoss(nn.Module):
-    def __init__(self, ):
-        super(NPairLoss, self).__init__()
-       #self.l2_reg = l2_reg
-        self.loss_func = losses.NPairsLoss(distance = CosineSimilarity(),
-                                           reducer = ThresholdReducer(high=0.3),
-                                           embedding_regularizer = LpRegularizer())
+class ProxyISA(nn.Module):
+    def __init__(self, numClasses, sizeEmbed, mrg=0.1, alpha=32, V=100, k=1.0, lam=0.1, h=0.15, tau=1.5):
+        super(ProxyISA, self).__init__()
+        self.numClasses = numClasses
+        # Proxy Initialization
+        self.proxies = nn.Parameter(torch.Tensor(numClasses, sizeEmbed).cuda())
+        nn.init.kaiming_normal_(self.proxies, mode='fan_out')
+
+        self.counter = [0] * self.numClasses
+        self.learnedSim = torch.ones(self.numClasses, dtype=float).cuda()
+        self.mrg = mrg
+        self.alpha = alpha
+        self.V = V
+        self.beta = (V - 1) / V
+        self.effectiveNum = torch.zeros(self.numClasses, dtype=float).cuda()
+        self.k = k
+        self.lam = lam
+        self.hardnessScaler = h
+        self.tau = tau
+        self.enableMemory = False
+        self.enableFilter = False
+
+    def forward(self, inputsBatch, targetsBatch, memory=None):
+        batchSize = len(targetsBatch)
+        P_one_hot = binarize(T=targetsBatch, nb_classes=self.numClasses)
+        N_one_hot = 1 - P_one_hot
+
+        proxy_l2 = l2_norm(self.proxies)
+        # Calcluate cosine similarity
+        cos = F.linear(inputsBatch, proxy_l2)
         
-    def forward(self, embeddings, labels):
-        loss = self.loss_func(embeddings, labels)
+        classCnt = P_one_hot.sum(dim=0)
+        classInBatch = torch.nonzero(classCnt != 0, as_tuple=False).squeeze(dim=1)
+
+        w_base = 1.0 / (1.0 + torch.log(1.0 + self.effectiveNum))
+        w = (1.0 + torch.exp(-self.tau)) * (w_base - 1) / (1.0 + torch.exp(self.V - self.tau - self.effectiveNum)) + 1.0
+        eta = (1.0 + self.k * (1.0 - self.learnedSim)) * w_base + self.lam
+        outlierSim = self.learnedSim - eta
+
+        pos_cos = self.mrg - cos
+        neg_cos = cos + self.mrg
+
+        pos_weight_sum = 0.0
+        neg_weight_sum = 0.0
+
+        if self.enableFilter:
+            filtered = torch.tensor([]).cuda()
+
+        mask = torch.ones((batchSize, self.numClasses), dtype=cos.dtype).cuda()
+
+        for i in classInBatch:
+            P_idx = torch.nonzero(P_one_hot[:, i], as_tuple=False).squeeze(dim=1)
+            P_idy = torch.tensor([i] * len(P_idx))
+
+            if self.enableFilter:
+                # Count filtered sample
+                filt_sample_id = torch.nonzero(cos[P_idx, P_idy] < outlierSim[i], as_tuple=False).squeeze(dim=1)
+                if len(filt_sample_id) > 0:
+                    classCnt[i] -= len(filt_sample_id)
+                    filtered = torch.hstack((filtered, P_idx[filt_sample_id]))
+
+                P_i_mask = torch.where(cos[P_idx, P_idy] > self.learnedSim[i],
+                                       torch.ones_like(cos[P_idx, P_idy]) * w[i],
+                                       torch.ones_like(cos[P_idx, P_idy]) + w[i]).float()
+                P_i_mask = torch.where(cos[P_idx, P_idy] < outlierSim[i], torch.ones_like(P_i_mask) * w[i], P_i_mask)
+                mask[P_idx, P_idy] = P_i_mask
+
+            pos_weight_sum += mask[P_idx, P_idy].mean()
+
+        for i in range(self.numClasses):
+            N_idx = torch.nonzero(N_one_hot[:, i], as_tuple=False).squeeze(dim=1)
+            if len(N_idx) == 0:
+                continue
+            N_idy = torch.tensor([i] * len(N_idx))
+
+            N_i_mask = torch.where(cos[N_idx, N_idy] < outlierSim[i], #self.learnedSim[i] - eta[i],
+                                   torch.ones_like(cos[N_idx, N_idy]) / max(1.0, self.effectiveNum[i]),
+                                   torch.ones_like(cos[N_idx, N_idy])).float()
+            mask[N_idx, N_idy] = N_i_mask
+
+            neg_weight_sum += N_i_mask.mean()
+        
+        
+        pos_term = torch.log(1.0 + torch.sum(P_one_hot * torch.exp(self.alpha * pos_cos * mask), dim=0)).sum()
+        neg_term = torch.log(1.0 + torch.sum(N_one_hot * torch.exp(self.alpha * neg_cos * mask), dim=0)).sum()
+
+        if self.enableMemory:
+            if self.enableFilter:
+                clean_idx = torch.tensor([x for x in range(batchSize) if x not in filtered])
+                newFeats = inputsBatch[clean_idx]
+                newTargets = targetsBatch[clean_idx]
+            else:
+                newFeats = inputsBatch
+                newTargets = targetsBatch
+
+            memory.enqueue_dequeue(newFeats.detach(), newTargets.detach())
+            featsMem, targetsMem = memory.get()
+
+        for i in classInBatch:
+            if classCnt[i].item() > 0:
+                self.counter[i] += classCnt[i].item()
+                self.effectiveNum[i] = (1.0 - self.beta ** self.counter[i]) / (1.0 - self.beta)
+            if self.enableMemory:
+                targetIdx = torch.nonzero(targetsMem == i, as_tuple=False).squeeze(dim=1)
+                if targetIdx.shape[0] > 0:
+                    self.learnedSim[i] = F.linear(proxy_l2[i].detach(), featsMem[targetIdx]).mean() * self.hardnessScaler
+
+        loss = pos_term / pos_weight_sum + neg_term / neg_weight_sum
+
         return loss

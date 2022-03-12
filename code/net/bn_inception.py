@@ -7,29 +7,21 @@ import random
 
 __all__ = ['BNInception', 'bn_inception']
 
-"""
-Inception v2 was ported from Caffee to pytorch 0.2, see 
-https://github.com/Cadene/pretrained-models.pytorch. I've ported it to 
-PyTorch 0.4 for the Proxy-NCA implementation, see 
-https://github.com/dichotomies/proxy-nca.
-"""
-
 class bn_inception(nn.Module):
-    def __init__(self, embedding_size, pretrained = True, is_norm=True, bn_freeze = True):
+    def __init__(self, embedding_size, pretrained=True, is_norm=True, bn_freeze=True):
         super(bn_inception, self).__init__()
-        self.model = BNInception(embedding_size, pretrained, is_norm)
+        self.model = BNInception(embedding_size)
         if pretrained:
 #             weight = model_zoo.load_url('http://data.lip6.fr/cadene/pretrainedmodels/bn_inception-239d2248.pth')
             weight = model_zoo.load_url('http://data.lip6.fr/cadene/pretrainedmodels/bn_inception-52deb4733.pth')
             weight = {k: v.squeeze(0) if v.size(0) == 1 else v for k, v in weight.items()}
             self.model.load_state_dict(weight)
-
-        self.model.gap = nn.AdaptiveAvgPool2d(1)
-        self.model.gmp = nn.AdaptiveMaxPool2d(1)
         
-        self.model.embedding = nn.Linear(self.model.num_ftrs, self.model.embedding_size)
-        init.kaiming_normal_(self.model.embedding.weight, mode='fan_out')
-        init.constant_(self.model.embedding.bias, 0)
+        self.embedding = nn.Linear(self.model.num_ftrs, self.model.embedding_size)
+        init.kaiming_normal_(self.embedding.weight, mode='fan_out')
+        init.constant_(self.embedding.bias, 0)
+
+        self.is_norm = is_norm
         
         if bn_freeze:
             for m in self.model.modules():
@@ -38,20 +30,35 @@ class bn_inception(nn.Module):
                     m.weight.requires_grad_(False)
                     m.bias.requires_grad_(False)
 
-                
+    def l2_norm(self, input):
+        input_size = input.size()
+        buffer = torch.pow(input, 2)
+        normp = torch.sum(buffer, 1).add_(1e-12)
+        norm = torch.sqrt(normp)
+        _output = torch.div(input, norm.view(-1, 1).expand_as(input))
+        output = _output.view(input_size)
+        return output
+    
     def forward(self, input):
-        return self.model.forward(input)
+        x = self.model.forward(input)
+
+        adaptiveAvgPoolWidth = x.shape[2]
+        x = F.avg_pool2d(x, kernel_size=adaptiveAvgPoolWidth)
+        x = x.view(x.size(0), -1)
+        x = self.embedding(x)
+
+        if self.is_norm:
+            x = self.l2_norm(x)
+        return x
 
 class BNInception(nn.Module):
 
-    def __init__(self, embedding_size, pretrained = True, is_norm=True):
+    def __init__(self, embedding_size, pretrained=True, is_norm=True):
         super(BNInception, self).__init__()
 
         inplace = True
         self.embedding_size = embedding_size
         self.num_ftrs = 1024
-
-        self.is_norm = is_norm
 
         self.conv1_7x7_s2 = nn.Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3))
         self.conv1_7x7_s2_bn = nn.BatchNorm2d(64, eps=1e-05, momentum=0.9, affine=True)
@@ -507,24 +514,6 @@ class BNInception(nn.Module):
         inception_5b_output_out = torch.cat([inception_5b_1x1_bn_out,inception_5b_3x3_bn_out,inception_5b_double_3x3_2_bn_out,inception_5b_pool_proj_bn_out], 1)
         return inception_5b_output_out
     
-    def l2_norm(self,input):
-        input_size = input.size()
-        buffer = torch.pow(input, 2)
-        normp = torch.sum(buffer, 1).add_(1e-12)
-        norm = torch.sqrt(normp)
-        _output = torch.div(input, norm.view(-1, 1).expand_as(input))
-        output = _output.view(input_size)
-        return output
-    
     def forward(self, input):
         x = self.features(input)
-        avg_x = self.gap(x)
-        max_x = self.gmp(x)
-    
-        x = avg_x + max_x
-        x = x.view(x.size(0), -1)
-        x = self.embedding(x)
-        
-        if self.is_norm:
-            x = self.l2_norm(x)
         return x
