@@ -1,8 +1,8 @@
 # Informative Sample-Aware Proxy for Deep Metric Learning
 
-<!-- Official PyTorch implementation of ECCV 2022 paper [**Informative Sample-Aware Proxy for Deep Metric Learning**].  -->
+Official PyTorch implementation of MMAsia 2022 paper [**Informative Sample-Aware Proxy for Deep Metric Learning**]. 
 
-This repository provides source code of experiments on four datasets (CUB-200-2011, Cars-196, Stanford Online Products and In-shop) and pretrained models.
+<!-- This repository provides source code of experiments on four datasets (CUB-200-2011, Cars-196, Stanford Online Products and In-shop) and pretrained models. -->
 
 ## Requirements
 
@@ -164,29 +164,8 @@ python evaluate.py --gpu_id 0 \
                    --model bn_inception \
                    --embedding_size 512 \
                    --dataset cub \
-                   --resume /your/model/path/best_model.pth
+                   --resume /PATH/TO/YOUR/Model.pth
 ```
-
-<!-- ## Class Imalance problem study
-
-Use preprocessed CUB-200-2011 dataset to show effect of balanced sampling.
-
-<p align="left"><img src="images/Preprocessed_CUB.png" alt="graph" width="50%"></p>
-
-```bash
-python train.py --gpu-id 0 \
-                --loss Proxy_Anchor \
-                --model resnet50 \
-                --embedding-size 512 \
-                --batch-size 120 \
-                --lr 1e-4 \
-                --dataset cub \
-                --warm 5 \
-                --bn-freeze 1 \
-                --lr-decay-step 5 \
-		            --scale 0.8 \
-                --IPC 3
-``` -->
 
 ## Embedding Space Visualization
 
@@ -197,12 +176,12 @@ Right: Proxy-ISA (Ours)
 
 <p align="left"><img src="images/tSNE_ProxyAnchor.png" alt="graph" width="47%">&nbsp<img src="images/tSNE_ProxyISA.png" alt="graph" width="48%"></p>
 
-<!-- ## Citation
+## Citation
     
-    @InProceedings{Li_2022_ECCV,
-      author = {},
+    @InProceedings{Li_2022_MMAsia,
       title = {Informative Sample-Aware Proxy for Deep Metric Learning},
-      booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-      month = {June},
-      year = {2022}
-    } -->
+      author = {Li, Aoyu and Sato, Ikuro and Ishikawa, Kohta and Kawakami, Rei and Yokota, Rio},
+      booktitle = {ACM Multimedia Asia (MMAsia '22)},
+      year = {2022},
+      doi = {10.1145/3551626.3564942}
+    }

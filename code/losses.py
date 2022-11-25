@@ -4,10 +4,6 @@ import torch.nn.functional as F
 import math
 import random
 import numpy as np
-from pytorch_metric_learning import miners, losses
-from pytorch_metric_learning.distances import CosineSimilarity
-from pytorch_metric_learning.reducers import ThresholdReducer
-from pytorch_metric_learning.regularizers import LpRegularizer
 
 def binarize(T, nb_classes):
     T = T.cpu().numpy()
@@ -198,18 +194,6 @@ class ContrastiveLoss(nn.Module):
             loss.append(pos_loss + neg_loss)
         
         loss = sum(loss) / n
-        return loss
-    
-class TripletLoss(nn.Module):
-    def __init__(self, margin=0.1, **kwargs):
-        super(TripletLoss, self).__init__()
-        self.margin = margin
-        self.miner = miners.TripletMarginMiner(margin, type_of_triplets='semihard')
-        self.loss_func = losses.TripletMarginLoss(margin=self.margin)
-        
-    def forward(self, embeddings, labels):
-        hard_pairs = self.miner(embeddings, labels)
-        loss = self.loss_func(embeddings, labels, hard_pairs)
         return loss
     
 class ProxyISA(nn.Module):

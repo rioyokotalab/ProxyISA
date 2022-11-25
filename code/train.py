@@ -238,7 +238,7 @@ if args.gpu_id == -1:
 # DML Losses
 if args.loss == 'ProxyISA':
     if not args.enableMemory:
-        raise NotImplementedError('Memory queue is not enabled')
+        raise NotImplementedError('Memory queue is not enabled.')
     criterion = losses.ProxyISA(numClasses=num_classes, sizeEmbed=args.sz_embedding, V=args.V, k=args.k, lam=args.lam).cuda()
 elif args.loss == 'ProxyAnchor':
     criterion = losses.ProxyAnchor(nb_classes=num_classes, sz_embed=args.sz_embedding, mrg=args.mrg, alpha=args.alpha).cuda()
@@ -248,8 +248,8 @@ elif args.loss == 'MS':
     criterion = losses.MultiSimilarityLoss().cuda()
 elif args.loss == 'Contrastive':
     criterion = losses.ContrastiveLoss().cuda()
-elif args.loss == 'Triplet':
-    criterion = losses.TripletLoss().cuda()
+else:
+    raise NotImplementedError('{} is currently not supported.'.format(args.loss))
 
 if args.init_type == 'center' and (args.loss == 'ProxyISA' or args.loss == 'ProxyAnchor' or args.loss == 'ProxyNCA'):
     criterion.proxies = torch.nn.Parameter(utils.proxy_init_calc(model, dl_tr))
