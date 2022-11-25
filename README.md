@@ -1,8 +1,6 @@
 # Informative Sample-Aware Proxy for Deep Metric Learning
 
-Official PyTorch implementation of MMAsia 2022 paper [**Informative Sample-Aware Proxy for Deep Metric Learning**]. 
-
-<!-- This repository provides source code of experiments on four datasets (CUB-200-2011, Cars-196, Stanford Online Products and In-shop) and pretrained models. -->
+Official PyTorch implementation of MMAsia 2022 paper [**Informative Sample-Aware Proxy for Deep Metric Learning**].
 
 ## Requirements
 
@@ -12,7 +10,6 @@ Official PyTorch implementation of MMAsia 2022 paper [**Informative Sample-Aware
 - tqdm
 - [wandb](https://wandb.ai/quickstart/pytorch)
 - [plotly](https://plotly.com/python/getting-started/) (needed if you want to visualize with t-SNE)
-- [Pytorch-Metric-Learning](https://github.com/KevinMusgrave/pytorch-metric-learning)
 
 ## Datasets
 
