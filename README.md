@@ -1,6 +1,6 @@
 # Informative Sample-Aware Proxy for Deep Metric Learning
 
-Official PyTorch implementation of MMAsia 2022 paper [**Informative Sample-Aware Proxy for Deep Metric Learning**](https://arxiv.org/abs/2211.10382).
+Official PyTorch implementation of ACM MM Asia 2022 paper [**Informative Sample-Aware Proxy for Deep Metric Learning**](https://arxiv.org/abs/2211.10382).
 
 ## Requirements
 
