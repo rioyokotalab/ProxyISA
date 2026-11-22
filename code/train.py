@@ -20,6 +20,16 @@ np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed) # set random seed for all gpus
 
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    lowered = value.strip().lower()
+    if lowered in ('true', 't', 'yes', 'y', '1'):
+        return True
+    if lowered in ('false', 'f', 'no', 'n', '0'):
+        return False
+    raise argparse.ArgumentTypeError('expected a boolean value, got %r' % value)
+
 parser = argparse.ArgumentParser(description='Official implementation of `Informative Sample-Aware Proxies for Deep Metric Learning`')
 # Export directory, training and val datasets, test datasets
 parser.add_argument('--LOG_DIR', 
@@ -76,10 +86,10 @@ parser.add_argument('--lr_decay_gamma', default=0.5, type=float,
 parser.add_argument('--warm', default=1, type=int,
                     help='Warmup epochs for training'
 )
-parser.add_argument('--bn_freeze', default=True, type=bool,
+parser.add_argument('--bn_freeze', default=True, type=str2bool,
                     help='Batch normalization parameter freeze'
 )
-parser.add_argument('--l2_norm', default=True, type=bool,
+parser.add_argument('--l2_norm', default=True, type=str2bool,
                     help='L2 normlization for model outputs'
 )
 parser.add_argument('--init_type', default='normal',
@@ -87,7 +97,7 @@ parser.add_argument('--init_type', default='normal',
 )
 
 # Memory queue settings
-parser.add_argument('--enableMemory', default=False, type=bool,
+parser.add_argument('--enableMemory', default=False, type=str2bool,
                     help='Use memory queue'
 )
 parser.add_argument('--T', default=55000, type=int,
@@ -132,7 +142,7 @@ parser.add_argument('--p', default=0.2, type=float,
 parser.add_argument('--eval_metric', default='MLRC',
                     help='Evaluation method'
 )
-parser.add_argument('--visualize', default=False, type=bool,
+parser.add_argument('--visualize', default=False, type=str2bool,
                     help='If True, visualize embedding space with t-SNE'
 )
 parser.add_argument('--remark', default='',
